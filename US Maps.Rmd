@@ -1,0 +1,189 @@
+---
+title: "US Maps"
+output:
+  html_document: default
+  word_document: default
+  pdf_document: default
+---
+
+```{r setup, include=FALSE}
+# Packages
+
+install.packages("sf")
+install.packages("usmap")
+install.packages("viridis") # color palletes
+install.packages("viridisLite")
+install.packages("RColorBrewer")
+install.packages("tidycensus")
+install.packages("gganimate")
+install.packages("animation")
+install.packages("readxl")
+library(sf)
+library("tidycensus")
+library("usmap")
+library("viridis")  
+library("viridisLite")
+library("RColorBrewer")
+library("tidycensus")
+library(dplyr)
+library(statebins)
+library("gganimate")
+library("animation")
+library("readxl")
+
+
+```
+
+## R Markdown
+
+This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+
+When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+
+```{r plot_usmap()}
+
+# US State Level Map
+unemp <- read_excel("~/Documents/RStudio Data/US Unemployment Rates.xlsx")
+unemp <- unemp %>% filter (Year == 2012)
+
+plot_usmap(regions = "states", data = unemp, value = "Rate",
+           color = "white", size = 0.1) + # color changes the border color
+                                          # size changes the border thickness
+           scale_fill_viridis(option = "viridis", direction = -1)+
+           theme(legend.position = "right")+
+  labs(title = "2012 Unemployment Rates by State",
+       fill = "Unemployment Rates",
+       caption='Source: Bureau Labor of Statistics')
+
+
+
+# Access Census data
+census_api_key('041f118e070667dea491978da5e7c2bedb842535')
+census_api_key("Census API key goes here")
+varlist19 = load_variables(2019, "acs5", cache = TRUE) # load variables
+
+
+# US County Level Map
+dr <- get_acs(geography='county', variables = 'B15003_025', summary_var = 'B15003_001',
+              year = 2019, geometry = TRUE, output = 'tidy') %>% 
+              mutate(perct = (estimate/summary_est)*100) %>% 
+              rename(fips = GEOID) %>% # Have to rename GEOID to fips for plot_usmap()
+              select(fips, NAME, perct, geometry)
+
+plot_usmap(regions = "counties", data = dr, value = "perct",
+           color = "black", size = 0.1) +
+           scale_fill_viridis(option = "rocket", direction = -1) +
+           theme(legend.position = "right") +
+  labs(fill = "% of Population",
+       caption='Source: Source: U.S. Census Bureau, American Community Survey (ACS) 2015-2019, 5-year Estimates',
+       title = "Percent of People with a Doctoral Degree")
+
+
+# Florida - County Level Map
+fl <- get_acs(geography='county', state = "FL", 
+              variables = 'B01001I_001', summary_var = 'B01001_001',
+              year = 2019, geometry = TRUE, output = 'tidy') %>% 
+              mutate(perct = (estimate/summary_est)*100) %>% 
+              rename(fips = GEOID) %>%
+              select(fips, NAME, perct, geometry)
+
+plot_usmap(regions = "counties", include = c("FL"), data = fl, value = "perct",
+           color = "black", size = 0.1) +
+           scale_fill_continuous(high = "orange", low = "white") + # Customize Colors
+           theme(legend.position = "right") +
+  labs(title = "Hispanic or Latino Population in Florida (2019)",
+       fill = "Percent of Population (%)",
+       caption='Source: Source: U.S. Census Bureau, American Community Survey (ACS) 2015-2019, 5-year Estimates')
+
+
+```
+
+## Including Plots
+
+You can also embed plots, for example:
+
+```{r ggplot map}
+
+# New York County Level Data
+ny <- get_acs(geography='county', state = "NY", 
+              variables = 'B04006_051', summary_var = 'B01003_001',
+              year = 2019, geometry = TRUE, output = 'tidy') %>% 
+              mutate(perct = (estimate/summary_est)*100) %>% 
+              select(GEOID, NAME, perct, geometry)
+
+ggplot(data=ny) +
+  geom_sf()+
+  aes(fill=perct) +
+  scale_fill_gradient(low = "white", high = "darkmagenta", # Change the color
+                      limits = c(0,30), # Customize legend scale values
+                      breaks = c(0,10,20,30),
+                      labels = c("0 %", "10 %", "20 %", "30 %")) + # Add labels
+  theme_void() +
+  labs(fill = "Italian Descent Population (%)",
+       title='Percent of Population Who Claim Italian Descent (2019)',
+       capcaption = 'Source: U.S. Census Bureau, American Community Survey (ACS) 2015-2019, 5-year Estimates') 
+
+
+ggplot(data=ny) +
+  geom_sf(aes(geometry = geometry, fill = perct), size = 0.2, color = "white")+
+  scale_fill_viridis(option = "viridis", direction = -1, # Viridis palette
+                      limits = c(0,30), 
+                      breaks = c(0,10,20,30)) +
+  labs(title = "Percent of Population Who Claim Italian Descent (2019)",
+       caption = 'Source: U.S. Census Bureau, American Community Survey (ACS), 
+       5-year Estimates',
+       fill = "Italian Descent Population (%)") +
+  theme_void() 
+
+```
+
+Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
+
+```{r geom_statebins()}
+
+dr <- get_acs(geography="state", variables = 'B03001_007', 
+              summary_var = 'B03001_001',
+              year = 2019, geometry = TRUE, output = 'tidy') %>% 
+              mutate(perct = (estimate/summary_est)*100) %>%
+              select(GEOID, NAME, perct, geometry)
+
+ggplot(dr, aes(state=NAME, fill=perct)) +
+  geom_statebins(lbl_size = 3,         # Change label size
+                 dark_lbl = "white",   # Change label colors
+                 light_lbl = "white") +
+  scale_fill_gradient(low = "dodgerblue", high = "red4", # Change the color
+                      limits = c(0,5), # Customize legend scale values
+                      breaks = c(0,1,2,3,4,5)) + # Add or change labels
+  labs(title = "Percent of Latinos that are Dominican Descent (2019)",
+       caption = 'Source: U.S. Census Bureau, American Community Survey (ACS) 2015-2019, 5-year Estimates',
+       fill = "% of Population") +
+  theme_void()
+
+
+```
+
+
+```{r gganimate - geom_statebins()}
+
+#gganimate
+unemp <- read_excel("~/Documents/RStudio Data/US Unemployment Rates.xlsx")
+
+ggplot(unemp, aes(state=states, fill=Rate)) + 
+  geom_statebins(lbl_size = 3.5,
+                 dark_lbl = "white",
+                 light_lbl = "white") +
+  scale_fill_viridis(option = "rocket", direction = -1,
+                      limits = c(0,15), 
+                      breaks = c(0,5,10,15)) + 
+  transition_time(Year) +
+  labs(title = "{as.integer(frame_time)} Unemployment Rates",
+       caption = 'Source: Bureau Labor of Statistics',
+       fill = "Unemployment Rates") +
+  theme_void() +
+  theme(legend.position = "bottom")
+
+
+
+```
+
+
