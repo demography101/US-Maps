@@ -58,7 +58,6 @@ plot_usmap(regions = "states", data = unemp, value = "Rate",
 
 
 # Access Census data
-census_api_key('041f118e070667dea491978da5e7c2bedb842535')
 census_api_key("Census API key goes here")
 varlist19 = load_variables(2019, "acs5", cache = TRUE) # load variables
 
